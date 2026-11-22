@@ -1,0 +1,29 @@
+name: Publish installers
+on:
+  push:
+    branches: [upload-parts]
+    paths: ['parts/READY']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rebuild installers from parts
+        run: |
+          mkdir -p out
+          for f in $(ls parts | grep '\.part' | sed 's/\.part[0-9]*$//' | sort -u); do
+            cat $(ls parts/$f.part* | sort -V) > out/$f
+          done
+          cp parts/SHA256SUMS.txt out/
+          cd out && sha256sum -c SHA256SUMS.txt
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete v1.0.0 -y --cleanup-tag -R ${{ github.repository }} || true
+          gh release create v1.0.0 -R ${{ github.repository }} --target main --latest \
+            --title "Money100x Office 1.0.0" \
+            --notes "Installers for Money100x Office (India) and Money100x Office Global. A licence key is required: buy at https://money100x.com/software. Checksums are in SHA256SUMS.txt." \
+            out/*
